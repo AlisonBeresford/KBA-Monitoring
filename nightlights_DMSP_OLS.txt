@@ -1,0 +1,54 @@
+//// Load KBA boundaries as a feature collection
+var regions = ee.FeatureCollection('ft:1pJO34hLdzSZtsOvDrFRZSSZhmmhvkczpABU5d-p1');
+
+
+//// Load nightlights image collection
+var collection = ee.ImageCollection('NOAA/DMSP-OLS/NIGHTTIME_LIGHTS');
+
+//// create list of years over which to iterate
+var years = ee.List.sequence(1992, 2013);
+
+//// Iterate through years and create a mean image per year
+var images_by_year = years.map(function(year) {
+    var filtered = collection.filter(ee.Filter.calendarRange(year, year, 'year'));
+    return filtered.mean().set('year', year);
+  });
+
+//// Make the result an Image Collection
+var mean_collection = ee.ImageCollection(images_by_year);
+
+//// Print results and add them to the map 
+print(mean_collection);
+Map.addLayer(mean_collection);
+
+
+//// Calculate mean value per KBA boundary per image in the mean image collection
+var results = mean_collection.map(function(image) {
+  return image.reduceRegions({
+    collection: regions,
+    reducer: ee.Reducer.mean(),
+    scale: 1000
+  }).map(function(f) {
+    // Add a year property to each output feature
+    return f.set('year', image.get('year'));
+  });
+});
+
+//// Flatten the results
+var kba_nl_dmsp_ols = ee.FeatureCollection(results).flatten();
+
+
+////Export the output feature collection to Google Drive as a csv file
+Export.table.toDrive(kba_nl_dmsp_ols);
+
+
+////Add the output feature collection to the map
+Map.addLayer(kba_nl_dmsp_ols);
+
+//// Export the FeatureCollection to a KML file
+//Export.table.toDrive({
+//  collection: kba_nl_dmsp_ols,
+//  description:'kba_nightlights_test',
+//  fileFormat: 'KML'
+//});
+

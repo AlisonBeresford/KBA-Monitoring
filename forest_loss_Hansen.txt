@@ -1,0 +1,71 @@
+//// Load KBA boundaries as a feature collection
+var regions = ee.FeatureCollection('ft:1jGzVGjsm5c63wlk9G96XO-av94We01TTdtQd1FMc');
+
+
+//// Load Hansen dataset as an image
+var Hansen = ee.Image('UMD/hansen/global_forest_change_2017_v1_5');
+
+//// Extract tree cover in 2000 
+var cover_2000 = Hansen.select(['treecover2000']);
+
+//// Select pixels where tree cover in 2000 was 50% or over
+var trees_2000 = cover_2000.gte(50);
+
+//// Calculate number of pixels in each kba/buffer with tree cover of 50% or over in 2000
+//var kba_trees_2000 = trees_2000.reduceRegions({
+//    collection: regions,
+//    reducer: ee.Reducer.sum(),
+//    scale: 30
+//  });
+  
+////Export the output feature collection to Google Drive as a csv file
+//Export.table.toDrive(kba_trees_2000); 
+
+
+//// Extract loss year
+var loss_year = Hansen.select(['lossyear']);
+
+//// Create a mask to set nodata where tree cover in 2000 < 50% or lossyear = 0
+var mask = loss_year.neq(0).and(trees_2000.eq(1));
+var loss_year_null = loss_year.mask(mask);
+
+
+//// Create a list of years to iterate through
+var years = ee.List.sequence(1,17);
+//print(years);
+
+//// Iterate through years and create loss layer per year
+var loss_by_year = years.map(function(year) {
+    return loss_year_null.eq(ee.Image.constant(year)).set('year', year);
+});
+
+//// Convert the output to an image collection
+var loss_stack = ee.ImageCollection(loss_by_year);
+//print(loss_stack);
+//Map.addLayer(loss_stack);
+
+//// Calculate total value per KBA boundary per image in the image collection (i.e.per year)
+var results = loss_stack.map(function(image) {
+  return image.reduceRegions({
+    collection: regions,
+    reducer: ee.Reducer.sum(),
+    scale: 30
+  }).map(function(f) {
+    // Add a year property to each output feature
+    return f.set('year', image.get('year'));
+  });
+});
+
+//// Flatten the results
+var kba_forest_loss = ee.FeatureCollection(results).flatten();
+
+
+////Export the output feature collection to Google Drive as a csv file
+Export.table.toDrive(kba_forest_loss);
+
+
+////Add the output feature collection to the map
+//Map.addLayer(kba_forest_loss);
+
+
+
