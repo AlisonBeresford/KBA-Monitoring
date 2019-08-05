@@ -16,6 +16,8 @@ To convert outputs in pixels to areas in square meters, multiply by the scale fa
 
 It should be noted that the output units have been deliberately kept as pixels, rather than area units (e.g. square metres) because of an issue with the way GEE handles the ee.Reducer.sum() command at different scales.
 
+The way that GEE handles scale is described here: https://developers.google.com/earth-engine/scale.  If the scale variable is specified as the native resolution of the data (e.g. using Hansen data at scale 30 (30x30m pixels)), no resampling takes place.  However, if the scale value is different from the native resolution of the data, the first thing GEE does is to resample your input images to the specified output scale.  The issue is that it does this resampling based on the mean (for continuous data) or a sample (for discrete data), even though it’s all wrapped up within a sum function.  This is represented diagramatically in the attached GEE_resample.png file. If each of the lower squares in the diagram represents a 1x1km pixel, then the top square is what you get when you specify a scale of 4000 (4x4km).  In the example given, the true sum is 32, but the resampling done by GEE gives a value of 2.  For this reason, it is reccommended to work either at the native resolution of the data (e.g. using Hansen data at scale 30) or calculate values as number of pixels and convert to square meters or other area units at the end of the analysis.
+
 
  
 # Contact
